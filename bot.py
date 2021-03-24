@@ -27,9 +27,15 @@ async def on_ready():
 
 @client.event
 async def on_voice_state_update(member, before, after):
-
+    
+    if (not after.channel): # ignore users leaving a channel
+        return
+    if (before.channel): 
+        if (after.channel.name == before.channel.name): # ignore users already in the channel
+            return
 
     if (after.channel.name == 'General'):
+
 
         channel = discord.utils.get(member.guild.text_channels, name='general')
 

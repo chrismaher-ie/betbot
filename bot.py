@@ -44,7 +44,7 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.startswith('#check'):
+    if message.content.startswith('#test'):
         await message.channel.send(f'I heard you! {message.author.name}')
         vc = discord.utils.get(message.guild.voice_channels, name='General')
         members = '\n - '.join([member.name for member in vc.members])

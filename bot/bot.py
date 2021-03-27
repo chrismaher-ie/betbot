@@ -1,31 +1,24 @@
 # bot.py
 import os
-
 import discord
+
+from datetime import datetime
+from dateutil.parser import parse
+from discord.ext import commands
 from dotenv import load_dotenv
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
+
+sandwich_id = 233699368249720832
+
 intents = discord.Intents.default()
 intents.members = True
-client = discord.Client(intents=intents)
 
-# def get_guild():
-#     return discord.utils.get(client.guilds, name = GUILD)
+bot = commands.Bot(command_prefix='!', intents=intents)
 
-
-@client.event
-async def on_ready():
-
-    print(f'{client.user} is connected to the following guilds:\n')
-    for guild in client.guilds:
-        f'{guild.name}(id: {guild.id})\n'
-    
-        members = '\n - '.join([member.name for member in guild.members])
-        print(f'Guild Members:\n - {members} \n\n')
-
-
-@client.event
+# When person connects to the voice channel
+@bot.event
 async def on_voice_state_update(member, before, after):
     
     if (not after.channel): # ignore users leaving a channel
@@ -41,20 +34,24 @@ async def on_voice_state_update(member, before, after):
 
         await channel.send(f"{member.name} just joined #General, I'm watching you")
 
+# Bot commands
+@bot.command(name='new_round', help = 'Start new round of betting for his arrival time.')
+async def new_round(ctx, proposed_time):
 
-@client.event
-async def on_message(message):
+    proposed_time_parsed = parse(proposed_time)
+    proposed_time_formatted = proposed_time_parsed.strftime("%H:%M:%S")
 
-    
-    # we do not want the bot to reply to itself
-    if message.author == client.user:
-        return
+    round_start_time = datetime.now().strftime("%H:%M:%S")
 
-    if message.content.startswith('#test'):
-        await message.channel.send(f'I heard you! {message.author.name}')
-        vc = discord.utils.get(message.guild.voice_channels, name='General')
-        members = '\n - '.join([member.name for member in vc.members])
-        await message.channel.send(f"users in: \n {members}")
+    await ctx.send(
+        f"""New Round.
+        \nThe sandwich has stated his time of arrival to be {proposed_time_formatted}.
+        \nCurrent time: {round_start_time}."""
+    )
+
+    vc = discord.utils.get(ctx.guild.voice_channels, name='General')
+    members = '\n - '.join([member.name for member in vc.members])
+    await ctx.send(f"Users in voice chat: \n {members}")
 
 
-client.run(TOKEN)
+bot.run(TOKEN)

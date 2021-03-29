@@ -54,5 +54,10 @@ async def new_round(ctx, proposed_time):
     members = '\n - '.join([member.name for member in vc.members])
     await ctx.send(f"Users in voice chat: \n {members}")
 
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        arg = error.param.name
+        await ctx.send(f"the previous command is missing parameter: {arg}")
 
 bot.run(TOKEN)

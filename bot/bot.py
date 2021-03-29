@@ -55,7 +55,7 @@ async def on_voice_state_update(member, before, after):
 
 
 # Bot commands
-@bot.command(name='new_round', help = 'Start new round of betting for his arrival time.')
+@bot.command(name='new_round', help = 'Start new round of betting for the member\'s arrival time.')
 async def new_round(ctx, member: discord.Member, proposed_time):
     #TODO: except if member is already in vc
 
@@ -64,8 +64,7 @@ async def new_round(ctx, member: discord.Member, proposed_time):
     round_start_time = datetime.now().strftime("%H:%M:%S")
     
     if ctx.guild.id in bot.games:
-        await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! A round is already in progress", color=0xff0000))
-        return
+        await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! A round is already in progress.", color=0xff0000))
     else: 
         bot.games[ctx.guild.id] = Game(member, datetime.now(), proposed_time_parsed, ctx.channel)
 
@@ -76,6 +75,15 @@ async def new_round(ctx, member: discord.Member, proposed_time):
         await ctx.send(embed=embedVar)
 
 
+@bot.command(name='cancel_round', help = 'Cancel current round of betting.')
+async def cancel_round(ctx):
+    if ctx.guild.id in bot.games:
+        del bot.games[ctx.guild.id]
+        await ctx.send(embed=discord.Embed(Title="Cancelled!", description="The current round has been cancelled.",inline=False, color=0x0000ff))
+    else:
+        await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! There is no round in progress to cancel.", color=0xff0000))
+
+        
 # TODO: restore as a check members command or remove
     # vc = discord.utils.get(ctx.guild.voice_channels, name='General')
     # members = '\n - '.join([member.name for member in vc.members])
@@ -85,6 +93,6 @@ async def new_round(ctx, member: discord.Member, proposed_time):
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         arg = error.param.name
-        await ctx.send(f"the previous command is missing parameter: {arg}")
+        await ctx.send(f"The previous command is missing parameter:\n -> {arg} <-")
 
 bot.run(TOKEN)

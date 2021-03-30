@@ -2,7 +2,7 @@
 import os
 import discord
 
-import game
+from game import Round, Player
 
 from datetime import datetime
 from dateutil.parser import parse
@@ -24,9 +24,8 @@ bot.games = {}
 #TODO: move to game.py
 def get_round_end_embed(game):
                     
-                    
     #calculate time
-    timedelta = (game.proposedtime - datetime.now()).total_seconds()
+    timedelta = (game.proposed_time - datetime.now()).total_seconds()
     if timedelta > 0:
         result_msg = f"{game.member.name} is early by {int(timedelta / 60)} minutes and {int(timedelta % 60)} seconds! Congrats!"
     elif timedelta < 0:
@@ -37,7 +36,7 @@ def get_round_end_embed(game):
     
     #setup embed to display results
     embedVar = discord.Embed(title="Round Ended", description=f"Member {game.member.name} has arrived", color=0x00ff00)
-    embedVar.add_field(name="Promised time", value=game.proposedtime.strftime("%H:%M:%S"), inline=False)
+    embedVar.add_field(name="Promised time", value=game.proposed_time.strftime("%H:%M:%S"), inline=False)
     embedVar.add_field(name="Current time", value=datetime.now().strftime("%H:%M:%S"), inline=False)
     embedVar.add_field(name="Result", value=result_msg, inline=False)
 
@@ -75,6 +74,7 @@ async def new_round(ctx, member: discord.Member, proposed_time):
     if ctx.guild.id in bot.games:
         await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! A round is already in progress.", color=0xff0000))
     else: 
+
         bot.games[ctx.guild.id] = Round(member, datetime.now(), proposed_time_parsed, ctx.channel)
 
         embedVar = discord.Embed(title="New Round", description=f"Member {member.name} is being timed!", color=0x0000ff)

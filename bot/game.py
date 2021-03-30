@@ -1,5 +1,5 @@
 import numpy as np
-import datetime
+from datetime import datetime
 
 class Player:
     def __init__(self, discord_id, time_bet, stake):
@@ -21,9 +21,9 @@ class Round:
 
     def __init__(self, member, start_time, proposed_time, command_channel):
         self.member = member
-        self.start_time = np.datetime64(start_time)
-        self.proposed_time = np.datetime64(proposed_time)
-        self.command_channel = channel 
+        self.start_time = start_time
+        self.proposed_time = proposed_time
+        self.command_channel = command_channel 
 
         self.players = []
         self.arrival_time = np.datetime64()
@@ -34,7 +34,7 @@ class Round:
     def end_round(self):
         self.arrival_time = np.datetime64(datetime.now())
 
-        stakes = np.array[self.players[i].stake for i in range(len(self.players))]
+        stakes = np.array([self.players[i].stake for i in range(len(self.players))])
 
         distances = calculate_distances(self.arrival_time)
 

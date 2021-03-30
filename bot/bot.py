@@ -2,11 +2,12 @@
 import os
 import discord
 
+import game
+
 from datetime import datetime
 from dateutil.parser import parse
 from discord.ext import commands
 from dotenv import load_dotenv
-from game import Game
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -74,7 +75,7 @@ async def new_round(ctx, member: discord.Member, proposed_time):
     if ctx.guild.id in bot.games:
         await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! A round is already in progress.", color=0xff0000))
     else: 
-        bot.games[ctx.guild.id] = Game(member, datetime.now(), proposed_time_parsed, ctx.channel)
+        bot.games[ctx.guild.id] = Round(member, datetime.now(), proposed_time_parsed, ctx.channel)
 
         embedVar = discord.Embed(title="New Round", description=f"Member {member.name} is being timed!", color=0x0000ff)
         embedVar.add_field(name="Promised time", value=proposed_time_formatted, inline=False)

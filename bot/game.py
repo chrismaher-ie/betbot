@@ -4,7 +4,7 @@ from datetime import datetime
 class Player:
     def __init__(self, discord_id, time_bet, stake):
         self.discord_id = discord_id
-        self.time_bet = time_bet
+        self.time_bet = np.datetime64(time_bet)
         self.stake = stake
         self.money = 100 # Pull value from database?
 
@@ -17,12 +17,13 @@ class Player:
         """
 
 class Round:
+    # TODO: Privatize some of the functions
     micro_second_factor = 1_000_000
 
     def __init__(self, member, start_time, proposed_time, command_channel):
         self.member = member
-        self.start_time = start_time
-        self.proposed_time = proposed_time
+        self.start_time = np.datetime64(start_time)
+        self.proposed_time = np.datetime64(proposed_time)
         self.command_channel = command_channel 
 
         self.players = []
@@ -34,23 +35,37 @@ class Round:
     def end_round(self):
         self.arrival_time = np.datetime64(datetime.now())
 
-        stakes = np.array([self.players[i].stake for i in range(len(self.players))])
+        player_data = np.array([
+            (self.players[i].stake, self.players[i].money, self.players[i].time_bet)
+            for i in range(len(self.players))
+        ])
 
-        distances = calculate_distances(self.arrival_time)
+        # Can't remember if this is how numpy arrays work.
+        # It absolutely isn't...
+        # But above avoids mutliple iterations
+        stakes = player_data[0]
+        old_money = player_data[1]
+        times_bet = player_data[2]
 
+        distances = calc_distances(times_bet, self.arrival_time)
         winnings = get_winnings(distances, stakes)
+        new_money = old_money + winnings
 
         for i in range(len(self.players)):
             self.players[i].money = new_money[i]
+
+        # Post to database?
+
+        # Return something? For Chris todo...
+        return None
  
-    def calculate_sandwichness(self):
+    def calc_sandwichness(self):
         # Get difference between when member says they will arrive vs when they actually do
         # in seconds.
+        # Not used in calculations, but probably helpful function for Chris.
         return (self.proposed_time - self.arrival_time).astype(int) / micro_second_factor
 
-    def calculate_distances(self, comparative_time):
-        times_bet = np.array([self.players[i].time_bet for i in range(n)])
-
+    def calc_distances(self, times_bet, comparative_time):
         return abs((comparative_time - times_bet).astype(int) / micro_second_factor)
 
     def score_func(self, distances):
@@ -63,10 +78,10 @@ class Round:
             if (avg_distance != 0) \
             else np.ones(n)
 
-    def get_scores(self, distances):
+    def calc_scores(self, distances):
         return np.around(score_func(distances) - score_func(distances.mean()), decimals=3)
 
-    def get_winnings(self, distances, stakes):
+    def calc_winnings(self, distances, stakes):
         scores = pog_score_fun(distances)
         winnings = stakes * scores
 

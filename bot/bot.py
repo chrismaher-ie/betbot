@@ -107,7 +107,6 @@ async def bet(ctx, time, stake=10):
     time = parse(time)
     time_str = time.strftime("%H:%M:%S")
     if ctx.guild.id in bot.games:
-        del bot.games[ctx.guild.id]
         await ctx.send(embed=discord.Embed(Title="BET!", description=f"{ctx.message.author.name} has predicted {time_str} betting {stake} coins" ,inline=True, color=0x0000ff))
     else:
         await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! There is no round in progress to bet on.", color=0xff0000))

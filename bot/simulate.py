@@ -40,7 +40,7 @@ class Game:
 
         money = np.random.randint(
             starting_money - money_delta, 
-            starting_money + money_delta + 1,
+            starting_money + money_delta,
             size=self.num_players
         )
 

@@ -10,6 +10,9 @@ class Trial_Balance:
     def __str__(self):
         return f"Player {self.player.name} had {self.amount} Jambux at {self.date_time}"
 
+    def upload(self):
+        # Post to db
+
 class Bet:
     def __init__(self, round_id, player, time_bet, stake):
         self.round_id = round_id
@@ -26,6 +29,9 @@ class Bet:
         Time Bet: {self.time_bet}
         Stake Bet: {self.stake}
         """
+
+    def upload(self):
+        # Post to db
 
     def set_winnings(self, winnings):
         """Set the winnings earned from this particular bet.
@@ -52,14 +58,18 @@ class Player:
 
     @classmethod
     def new_player(cls, message_author):
-        # Try pull in player from player table with player_id.
         player_id = message_author.id
         player_name = message_author.name
 
+        # Pull data from Fauna based on player_id index.
+        
         if exists_in_db:
             return player_obj_from_db
         else:
-            return Player(player_id, player_name)
+            return cls(player_id, player_name)
+
+    def upload(self):
+        # Post to db
 
     def add_bet(self, bet):
         """Add a bet object to the player's list of bets.
@@ -72,14 +82,12 @@ class Player:
 class Round:
     _ns_to_min_factor = 60_000_000
 
-    def __init__(self, member, start_time, proposed_time, command_channel):
+    def __init__(self, round_id, member, start_time, proposed_time, command_channel):
+        self.round_id = round_id
         self.member = member
         self.start_time = np.datetime64(start_time)
         self.proposed_time = np.datetime64(proposed_time)
         self.command_channel = command_channel 
-
-        # Pull from db.
-        self.round_id = 
 
         self.bets = []
 
@@ -93,6 +101,13 @@ class Round:
         Proposed Arrival Time: {self.proposed_time}
         Arrival Time: {"Not arrived" if self.arrival_time.isnull() else self.arrival_time}
         """
+
+    @classmethod
+    def new_round(cls, member, start_time, proposed_time, command_channel):
+        # Create a new round in the database, get the round_id (Fauna document ref) from 
+        # this new object, and then use it to create a class
+        round_id = fauna_obj.id
+        return cls(round_id, member, start_time, proposed_time, command_channel)
 
     def end_round(self):
         """End the round, setting the arrival time as the current time, getting each bet's

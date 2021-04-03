@@ -17,7 +17,7 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-bot.sandwich_id = 326471661928972299
+# bot.sandwich_id = 326471661928972299
 
 bot.games = {}
 

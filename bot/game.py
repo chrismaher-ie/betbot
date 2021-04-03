@@ -36,9 +36,9 @@ class Bet:
         self.winnings = winnings
 
 class Player:
-    def __init__(self, player_id, name, money = 100):
+    def __init__(self, player_id, player_name, money = 100):
         self.player_id = player_id
-        self.name = name
+        self.name = player_name
         self.money = money
 
         self.bets = []
@@ -50,26 +50,36 @@ class Player:
         Current Money: {self.money}
         """
 
-    def add_bet(self, round_id, time_bet, stake):
+    @classmethod
+    def new_player(cls, message_author):
+        # Try pull in player from player table with player_id.
+        player_id = message_author.id
+        player_name = message_author.name
+
+        if exists_in_db:
+            return player_obj_from_db
+        else:
+            return Player(player_id, player_name)
+
+    def add_bet(self, bet):
         """Add a bet object to the player's list of bets.
         
         Args:
-            round_id (int): The ID of the round which the bet corresponds to.
-            time_bet (datetime64): The date and time at which the bet was made.
-            stake (int): Amount of Jambux bet.
+            bet (Bet): The bet object to add to the player's list of bets.
         """
-
-        self.bets.append(Bet(round_id, self, time_bet, stake))
+        self.bets.append(bet)
 
 class Round:
     _ns_to_min_factor = 60_000_000
 
-    def __init__(self, round_id, member, start_time, proposed_time, command_channel):
-        self.round_id = round_id
+    def __init__(self, member, start_time, proposed_time, command_channel):
         self.member = member
         self.start_time = np.datetime64(start_time)
         self.proposed_time = np.datetime64(proposed_time)
         self.command_channel = command_channel 
+
+        # Pull from db.
+        self.round_id = 
 
         self.bets = []
 
@@ -135,8 +145,9 @@ class Round:
             time_bet (datetime64): The date and time at which the bet was made.
             stake (int): Amount of Jambux bet.
         """
-        self.bets.append(Bet(self.round_id, player, time_bet, stake))
-        player.add_bet(self.round_id, time_bet, stake)
+        bet = Bet(self.round_id, player, time_bet, stake)
+        self.bets.append(bet)
+        player.add_bet(bet)
 
     def list_bets(self):
         """List the bets of the round.
@@ -163,7 +174,6 @@ class Round:
         Returns:
             ndarray[float]: Distance member's arrival time is away from proposed time, in minutes.            
         """
-
         return (self.proposed_time - self.arrival_time).astype(int) / _micro_second_factor
 
     def calc_distances(self, times_bet, comparative_time):
@@ -177,7 +187,6 @@ class Round:
         Returns:
             ndarray[float]: Distance each players bet is away from comparative time, in minutes.
         """
-
         return abs((comparative_time - times_bet).astype(int) / _micro_second_factor)
 
     def score_func(self, distances):

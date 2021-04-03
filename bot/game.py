@@ -1,22 +1,38 @@
 import numpy as np
+
 from datetime import datetime
 
-class Trial_Balance:
-    def __init__(self, player, amount, date_time):
-        self.player = player
+# from gql import gql, Client
+# from gql.transport.requests import RequestsHTTPTransport
+
+# transport=RequestsHTTPTransport(
+#     url='https://graphql.fauna.com/graphql/',
+#     use_json=True,
+#     headers={
+#         "Content-type": "application/json",
+#     },
+#     verify=False,
+#     retries=3
+# )
+
+# client = Client(
+#     transport=transport,
+#     schema=schema
+# )
+
+class TrialBalance:
+    def __init__(self, player_obj, amount, date_time):
+        self.player = player_obj
         self.amount = amount
-        self.date_time = date_time
+        self.date_time = np.datetime64(date_time)
 
     def __str__(self):
         return f"Player {self.player.name} had {self.amount} Jambux at {self.date_time}"
 
-    def upload(self):
-        # Post to db
-
 class Bet:
-    def __init__(self, round_id, player, time_bet, stake):
-        self.round_id = round_id
-        self.player = player
+    def __init__(self, round_obj, player_obj, time_bet, stake):
+        self.round = round_obj
+        self.player = player_obj
         self.time_bet = time_bet
         self.stake = stake
 
@@ -24,14 +40,11 @@ class Bet:
     
     def __str__(self):
         return f"""
-        Round ID: {self.round_id}
-        Player ID: {self.player.player_id}
+        Round ID: {self.round.round_id}
+        Player ID: {self.player.discord_id}
         Time Bet: {self.time_bet}
         Stake Bet: {self.stake}
         """
-
-    def upload(self):
-        # Post to db
 
     def set_winnings(self, winnings):
         """Set the winnings earned from this particular bet.
@@ -42,42 +55,48 @@ class Bet:
         self.winnings = winnings
 
 class Player:
-    def __init__(self, player_id, player_name, money = 100):
-        self.player_id = player_id
-        self.name = player_name
+    def __init__(self, discord_id, player_name, money = 100):
+        self.discord_id = discord_id # Discord ID
+        self.player_name = player_name
         self.money = money
 
         self.bets = []
+        self.trial_balances = []
 
     def __str__(self):
         return f"""
-        Player ID: {self.player_id}
-        Name: {self.name}
+        Discord ID: {self.discord_id}
+        Name: {self.player_name}
         Current Money: {self.money}
         """
 
     @classmethod
     def new_player(cls, message_author):
-        player_id = message_author.id
+        discord_id = message_author.id
         player_name = message_author.name
 
-        # Pull data from Fauna based on player_id index.
+        # Pull data from Fauna based on discord_id index.
         
         if exists_in_db:
             return player_obj_from_db
         else:
-            return cls(player_id, player_name)
-
-    def upload(self):
-        # Post to db
+            return cls(discord_id, player_name)
 
     def add_bet(self, bet):
-        """Add a bet object to the player's list of bets.
+        """Add a Bet object to the player's list of bets.
         
         Args:
             bet (Bet): The bet object to add to the player's list of bets.
         """
         self.bets.append(bet)
+
+    def add_trial_balance(self, trial_balance):
+        """Add a TrialBalance object to the player's list of trial balances.
+        
+        Args:
+            trial_balance (TrialBalance): The trial balance object to add to the player's list of trial balances.
+        """
+        self.trial_balances.append(trial_balance)
 
 class Round:
     _ns_to_min_factor = 60_000_000
@@ -104,9 +123,6 @@ class Round:
 
     @classmethod
     def new_round(cls, member, start_time, proposed_time, command_channel):
-        # Create a new round in the database, get the round_id (Fauna document ref) from 
-        # this new object, and then use it to create a class
-        round_id = fauna_obj.id
         return cls(round_id, member, start_time, proposed_time, command_channel)
 
     def end_round(self):
@@ -137,19 +153,25 @@ class Round:
             # Add new money to player's account.
             players[i].money += winnings[i]
 
+            # Make a new trial balance for the player.
+            trial_balance = TrialBalance(player[i], player[i].money, self.arrival_time)
+
+            # Add the new trial balance to the player.
+            players[i].add_trial_balance(trial_balance)
+
             # Add the winnings to each bet object.
             self.bets[i].set_winnings(winnings[i])
 
-        # Create TB from updated player data.
-        trial_balances = [
-            Trial_Balance(player, player.money, self.arrival_time) 
-            for player in players
-        ]
-
-        # PUSH TO DB HERE. Handler?
+        self.upload()
 
         # Return something? For Chris to decide...
         return None
+
+    def upload(self):
+    """Run GQL query/mutation to upload round object along with its bets, 
+    each bet's player, and each player's latest trial balance.
+    """
+        pass
 
     def add_bet(self, player, time_bet, stake):
         """Add a bet object to the round's list of bets. 
@@ -161,6 +183,7 @@ class Round:
             stake (int): Amount of Jambux bet.
         """
         bet = Bet(self.round_id, player, time_bet, stake)
+
         self.bets.append(bet)
         player.add_bet(bet)
 
@@ -221,7 +244,7 @@ class Round:
 
         return (avg_distance - distances)/avg_distance \
             if (avg_distance != 0) \
-            else np.ones(len(distances))
+            else np.zeros(len(distances))
 
     def calc_scores(self, distances):
         """Use the score function to calculate the scores from the distances. 
@@ -253,4 +276,4 @@ class Round:
         return winnings
 
 if __name__ == "__main__":
-    return None
+    print("dog")

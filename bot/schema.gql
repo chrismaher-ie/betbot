@@ -13,7 +13,7 @@ type Bet @collection(name: "bets") {
 }
 
 type Player @collection(name: "players") {
-    player_id: ID!
+    discord_id: String! @index
     player_name: String!
     money: Float!
     bets: [Bet]! @relation

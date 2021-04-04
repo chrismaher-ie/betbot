@@ -1,9 +1,15 @@
+import json
+
 import numpy as np
 
 from datetime import datetime
+from dateutil.parser import parse
 
-# from gql import gql, Client
-# from gql.transport.requests import RequestsHTTPTransport
+from gql import gql, Client
+from gql.transport.requests import RequestsHTTPTransport
+
+# with open("schema.gql") as f:
+#     scehma_str = f.read()
 
 # transport=RequestsHTTPTransport(
 #     url='https://graphql.fauna.com/graphql/',
@@ -17,7 +23,7 @@ from datetime import datetime
 
 # client = Client(
 #     transport=transport,
-#     schema=schema
+#     schema=scehma_str
 # )
 
 class TrialBalance:
@@ -29,22 +35,34 @@ class TrialBalance:
     def __str__(self):
         return f"Player {self.player.name} had {self.amount} Jambux at {self.date_time}"
 
+    def repr_JSON(self):
+        return dict(
+            amount=self.amount, 
+            date_time=datetime.strftime(self.date_time.item(), "%Y-%m-%dT%H:%M:%SZ")
+        )
+
 class Bet:
     def __init__(self, round_obj, player_obj, time_bet, stake):
         self.round = round_obj
         self.player = player_obj
-        self.time_bet = time_bet
+        self.time_bet = np.datetime64(time_bet)
         self.stake = stake
 
         self.winnings = float()
     
     def __str__(self):
         return f"""
-        Round ID: {self.round.round_id}
-        Player ID: {self.player.discord_id}
+        Discord ID: {self.player.discord_id}
         Time Bet: {self.time_bet}
         Stake Bet: {self.stake}
         """
+
+    def repr_JSON(self):
+        return dict(
+            time_bet = datetime.strftime(self.time_bet.item(), "%Y-%m-%dT%H:%M:%SZ"),
+            stake = self.stake,
+            winnings = self.winnings
+        )
 
     def set_winnings(self, winnings):
         """Set the winnings earned from this particular bet.
@@ -69,6 +87,15 @@ class Player:
         Name: {self.player_name}
         Current Money: {self.money}
         """
+
+    def repr_JSON(self):
+        return dict(
+            discord_id = self.discord_id,
+            player_name = self.player_name,
+            money = self.money,
+            bets = self.bets,
+            trial_balances = self.trial_balances
+        )
 
     @classmethod
     def new_player(cls, message_author):
@@ -101,8 +128,7 @@ class Player:
 class Round:
     _ns_to_min_factor = 60_000_000
 
-    def __init__(self, round_id, member, start_time, proposed_time, command_channel):
-        self.round_id = round_id
+    def __init__(self, member, start_time, proposed_time, command_channel):
         self.member = member
         self.start_time = np.datetime64(start_time)
         self.proposed_time = np.datetime64(proposed_time)
@@ -121,9 +147,19 @@ class Round:
         Arrival Time: {"Not arrived" if self.arrival_time.isnull() else self.arrival_time}
         """
 
+    def repr_JSON(self):
+        return dict(
+            member = self.member,
+            start_time = datetime.strftime(self.start_time.item(), "%Y-%m-%dT%H:%M:%SZ"),
+            proposed_time = datetime.strftime(self.proposed_time.item(), "%Y-%m-%dT%H:%M:%SZ"),
+            command_channel = self.command_channel,
+            arrival_time = datetime.strftime(self.arrival_time.item(), "%Y-%m-%dT%H:%M:%SZ"),
+            bets = self.bets
+        )
+
     @classmethod
     def new_round(cls, member, start_time, proposed_time, command_channel):
-        return cls(round_id, member, start_time, proposed_time, command_channel)
+        return cls(member, start_time, proposed_time, command_channel)
 
     def end_round(self):
         """End the round, setting the arrival time as the current time, getting each bet's
@@ -135,26 +171,25 @@ class Round:
         """
         self.arrival_time = np.datetime64(datetime.now())
 
-        bet_data = np.array([
-            (self.bets[i].stake, self.bets[i].time_bet)
+        bet_data = np.array([(self.bets[i].stake, self.bets[i].time_bet)
             for i in range(len(self.bets))
         ])
+
+        stakes = bet_data[:,0]
+        times_bet = bet_data[:,1].astype(np.datetime64) # Prevent dumb coercion
 
         # Keeps order of bets so can map seamlessly.
         players = [self.bets[i].player for i in range(len(self.bets))]
 
-        stakes = player_data[:,0]
-        times_bet = player_data[:,1]
+        distances = self.calc_distances(times_bet, self.arrival_time)
+        winnings = self.calc_winnings(distances, stakes)
 
-        distances = calc_distances(times_bet, self.arrival_time)
-        winnings = calc_winnings(distances, stakes)
-
-        for i in range(len(self.winnings)):
+        for i in range(len(winnings)):
             # Add new money to player's account.
             players[i].money += winnings[i]
 
             # Make a new trial balance for the player.
-            trial_balance = TrialBalance(player[i], player[i].money, self.arrival_time)
+            trial_balance = TrialBalance(players[i], players[i].money, self.arrival_time)
 
             # Add the new trial balance to the player.
             players[i].add_trial_balance(trial_balance)
@@ -168,10 +203,19 @@ class Round:
         return None
 
     def upload(self):
-    """Run GQL query/mutation to upload round object along with its bets, 
-    each bet's player, and each player's latest trial balance.
-    """
-        pass
+        """Run GQL query/mutation to upload round object along with its bets, 
+        each bet's player, and each player's latest trial balance.
+        """
+        return f'''
+        member: "{self.member}"
+        start_time: "{self.start_time}"
+        proposed_time: "{self.proposed_time}"
+        command_channel: "{self.command_channel}"
+        arrival_time: "{self.arrival_time}"
+        bets: {{
+            create: {[self.bets[i].upload() for i in range(len(bets))]}
+        }}
+        '''
 
     def add_bet(self, player, time_bet, stake):
         """Add a bet object to the round's list of bets. 
@@ -182,7 +226,7 @@ class Round:
             time_bet (datetime64): The date and time at which the bet was made.
             stake (int): Amount of Jambux bet.
         """
-        bet = Bet(self.round_id, player, time_bet, stake)
+        bet = Bet(self, player, time_bet, stake)
 
         self.bets.append(bet)
         player.add_bet(bet)
@@ -212,7 +256,7 @@ class Round:
         Returns:
             ndarray[float]: Distance member's arrival time is away from proposed time, in minutes.            
         """
-        return (self.proposed_time - self.arrival_time).astype(int) / _micro_second_factor
+        return (self.proposed_time - self.arrival_time).astype(int) / self._ns_to_min_factor
 
     def calc_distances(self, times_bet, comparative_time):
         """Calculate the distances (in minutes) each time bet is from the comparative time 
@@ -225,7 +269,7 @@ class Round:
         Returns:
             ndarray[float]: Distance each players bet is away from comparative time, in minutes.
         """
-        return abs((comparative_time - times_bet).astype(int) / _micro_second_factor)
+        return abs((comparative_time - times_bet).astype(int) / self._ns_to_min_factor)
 
     def score_func(self, distances):
         """The score function used for calculating each bets/player's score for that round. 
@@ -257,7 +301,7 @@ class Round:
         Returns:
             ndarray[float]: The final scores for each player.
         """
-        return np.around(score_func(distances) - score_func(distances.mean()), decimals=3)
+        return np.around(self.score_func(distances) - self.score_func(distances.mean()), decimals=3)
 
     def calc_winnings(self, distances, stakes):
         """Calculate total winnings from the distances and the stakes.
@@ -270,10 +314,22 @@ class Round:
         Returns:
             ndarray[float]: The final winnings for each player.
         """
-        scores = calc_scores(distances)
+        scores = self.calc_scores(distances)
         winnings = stakes * scores
 
-        return winnings
+        return winnings 
+
+class ComplexEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj,'repr_JSON'):
+            return obj.repr_JSON()
+        else:
+            return json.JSONEncoder.default(self, obj)
 
 if __name__ == "__main__":
-    print("dog")
+    rnd = Round.new_round("ham", parse("22:30:00"), parse("23:00:00"), "general")
+    player1 = Player("bd3dowling", "ben")
+    player2 = Player("cmaher", "chris")
+    rnd.add_bet(player1, parse("23:10:00"), 10)
+    rnd.add_bet(player2, parse("23:20:00"), 15)
+    print(rnd.upload())

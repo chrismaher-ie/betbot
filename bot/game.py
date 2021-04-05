@@ -8,23 +8,95 @@ from dateutil.parser import parse
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 
-# with open("schema.gql") as f:
-#     scehma_str = f.read()
+transport=RequestsHTTPTransport(
+    url='https://graphql.fauna.com/graphql/',
+    headers={
+        'Authorization': "fnAEFqxlzLACBY8eYdBc-r8RiVax-F_DAIx7Ws1Z:"
+    },
+    verify=True
+)
 
-# transport=RequestsHTTPTransport(
-#     url='https://graphql.fauna.com/graphql/',
-#     use_json=True,
-#     headers={
-#         "Content-type": "application/json",
-#     },
-#     verify=False,
-#     retries=3
-# )
+client = Client(
+    transport=transport,
+    fetch_schema_from_transport=True
+)
 
-# client = Client(
-#     transport=transport,
-#     schema=scehma_str
-# )
+class Player:
+    def __init__(self, discord_id, player_name, money, _id):
+        self.discord_id = discord_id # Discord ID
+        self.player_name = player_name
+        self.money = money
+        self._id = _id
+
+        self.bets = []
+        self.trial_balances = []
+
+    def __str__(self):
+        return f"""
+        Player ID: {self._id}
+        Discord ID: {self.discord_id}
+        Name: {self.player_name}
+        Current Money: {self.money}
+        """
+
+    @classmethod
+    def add_player(cls, discord_id, player_name, money=100):
+
+        find_query = gql(f'''query FindPlayer {{
+            findPlayer(discord_id: "{discord_id}") {{
+                _id
+            }}
+        }}''')
+
+        resp_json = client.execute(find_query)
+
+        resp_data = json.loads(resp_json)['data']
+
+        _id = resp_data['findPlayer']['_id'] if resp_data else None
+
+        if _id:
+            return cls(discord_id, player_name, money, _id)
+        else:
+            create_query = f'''
+            mutation CreatePlayer {{
+                createPlayer(data: {{
+                    discord_id: "{discord_id}",
+                    player_name: "{player_name}",
+                    money: {money}
+                }}) {{
+                    _id
+                }}
+            }}'''
+
+            resp_json = '''
+            {
+                "data": {
+                    "createPlayer": {
+                        "_id": "294985925030576641"
+                    }
+                }
+            }'''
+
+            _id = json.loads(resp_json)['data']['findPlayer']['_id']
+
+            return cls(discord_id, player_name, money, _id)
+
+    def add_bet(self, bet):
+        """Add a Bet object to the player's list of bets.
+        
+        Args:
+            bet (Bet): The bet object to add to the player's list of bets.
+        """
+        self.bets.append(bet)
+
+    def add_trial_balance(self, trial_balance):
+        """Add a TrialBalance object to the player's list of trial balances.
+        
+        Args:
+            trial_balance (TrialBalance): The trial balance object to add to 
+                the player's list of trial balances.
+        """
+        self.trial_balances.append(trial_balance)
 
 class TrialBalance:
     def __init__(self, player_obj, amount, date_time):
@@ -35,11 +107,9 @@ class TrialBalance:
     def __str__(self):
         return f"Player {self.player.name} had {self.amount} Jambux at {self.date_time}"
 
-    def repr_JSON(self):
-        return dict(
-            amount=self.amount, 
-            date_time=datetime.strftime(self.date_time.item(), "%Y-%m-%dT%H:%M:%SZ")
-        )
+    def get_upload_string(self):
+        return f'''amount: "{self.amount}", date_time: "{self.date_time}",
+        player: {{ connect: {self.player._id} }}'''
 
 class Bet:
     def __init__(self, round_obj, player_obj, time_bet, stake):
@@ -57,12 +127,9 @@ class Bet:
         Stake Bet: {self.stake}
         """
 
-    def repr_JSON(self):
-        return dict(
-            time_bet = datetime.strftime(self.time_bet.item(), "%Y-%m-%dT%H:%M:%SZ"),
-            stake = self.stake,
-            winnings = self.winnings
-        )
+    def get_upload_string(self):
+        return f'''time_bet: "{self.time_bet}", stake: "{self.stake}", winnings: "{self.winnings}",
+        player: {{ connect: {self.player._id} }}'''
 
     def set_winnings(self, winnings):
         """Set the winnings earned from this particular bet.
@@ -71,59 +138,6 @@ class Bet:
             winnings (float): The amount of Jambux won from this bet.
         """
         self.winnings = winnings
-
-class Player:
-    def __init__(self, discord_id, player_name, money = 100):
-        self.discord_id = discord_id # Discord ID
-        self.player_name = player_name
-        self.money = money
-
-        self.bets = []
-        self.trial_balances = []
-
-    def __str__(self):
-        return f"""
-        Discord ID: {self.discord_id}
-        Name: {self.player_name}
-        Current Money: {self.money}
-        """
-
-    def repr_JSON(self):
-        return dict(
-            discord_id = self.discord_id,
-            player_name = self.player_name,
-            money = self.money,
-            bets = self.bets,
-            trial_balances = self.trial_balances
-        )
-
-    @classmethod
-    def new_player(cls, message_author):
-        discord_id = message_author.id
-        player_name = message_author.name
-
-        # Pull data from Fauna based on discord_id index.
-        
-        if exists_in_db:
-            return player_obj_from_db
-        else:
-            return cls(discord_id, player_name)
-
-    def add_bet(self, bet):
-        """Add a Bet object to the player's list of bets.
-        
-        Args:
-            bet (Bet): The bet object to add to the player's list of bets.
-        """
-        self.bets.append(bet)
-
-    def add_trial_balance(self, trial_balance):
-        """Add a TrialBalance object to the player's list of trial balances.
-        
-        Args:
-            trial_balance (TrialBalance): The trial balance object to add to the player's list of trial balances.
-        """
-        self.trial_balances.append(trial_balance)
 
 class Round:
     _ns_to_min_factor = 60_000_000
@@ -146,20 +160,6 @@ class Round:
         Proposed Arrival Time: {self.proposed_time}
         Arrival Time: {"Not arrived" if self.arrival_time.isnull() else self.arrival_time}
         """
-
-    def repr_JSON(self):
-        return dict(
-            member = self.member,
-            start_time = datetime.strftime(self.start_time.item(), "%Y-%m-%dT%H:%M:%SZ"),
-            proposed_time = datetime.strftime(self.proposed_time.item(), "%Y-%m-%dT%H:%M:%SZ"),
-            command_channel = self.command_channel,
-            arrival_time = datetime.strftime(self.arrival_time.item(), "%Y-%m-%dT%H:%M:%SZ"),
-            bets = self.bets
-        )
-
-    @classmethod
-    def new_round(cls, member, start_time, proposed_time, command_channel):
-        return cls(member, start_time, proposed_time, command_channel)
 
     def end_round(self):
         """End the round, setting the arrival time as the current time, getting each bet's
@@ -202,9 +202,8 @@ class Round:
         # Return something? For Chris to decide...
         return None
 
-    def upload(self):
-        """Run GQL query/mutation to upload round object along with its bets, 
-        each bet's player, and each player's latest trial balance.
+    def get_upload_string(self):
+        """Create GQL mutation string to upload round object along with its bets.
         """
         return f'''
         member: "{self.member}"
@@ -213,7 +212,7 @@ class Round:
         command_channel: "{self.command_channel}"
         arrival_time: "{self.arrival_time}"
         bets: {{
-            create: {[self.bets[i].upload() for i in range(len(bets))]}
+            create: {[self.bets[i].upload() for i in range(len(self.bets))]}
         }}
         '''
 
@@ -319,17 +318,11 @@ class Round:
 
         return winnings 
 
-class ComplexEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if hasattr(obj,'repr_JSON'):
-            return obj.repr_JSON()
-        else:
-            return json.JSONEncoder.default(self, obj)
-
 if __name__ == "__main__":
-    rnd = Round.new_round("ham", parse("22:30:00"), parse("23:00:00"), "general")
-    player1 = Player("bd3dowling", "ben")
-    player2 = Player("cmaher", "chris")
-    rnd.add_bet(player1, parse("23:10:00"), 10)
-    rnd.add_bet(player2, parse("23:20:00"), 15)
-    print(rnd.upload())
+    print(Player.add_player("iopia", "bri"))
+    # rnd = Round.new_round("ham", parse("22:30:00"), parse("23:00:00"), "general")
+    # player1 = Player("bd3dowling", "ben")
+    # player2 = Player("cmaher", "chris")
+    # rnd.add_bet(player1, parse("23:10:00"), 10)
+    # rnd.add_bet(player2, parse("23:20:00"), 15)
+    # print(rnd.upload())

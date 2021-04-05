@@ -13,7 +13,7 @@ type Bet @collection(name: "bets") {
 }
 
 type Player @collection(name: "players") {
-    discord_id: String! @index
+    discord_id: String!
     player_name: String!
     money: Float!
     bets: [Bet]! @relation
@@ -27,4 +27,8 @@ type Round @collection(name: "rounds") {
     command_channel: String!
     bets: [Bet]! @relation
     arrival_time: Time
+}
+
+type Query {
+    findPlayer(discord_id: String!): Player
 }

@@ -1,4 +1,0 @@
-.gitignore
-.vscode/
-bot/__pycache__
-bot/fauna/__pycache__

@@ -33,8 +33,6 @@ def new_round(member, start_time, proposed_time, command_channel):
             }
         )
     )
-    
-# UPDATE ROUND; WITH ARRIVAL TIME
 
 def new_bets(round_ref, bets):
     bets_values = [
@@ -69,8 +67,8 @@ def new_bet(time_bet, stake, winnings, player_ref, round_ref):
         }
     )
 
-def new_trial_balances(players):
-    players_values = [[player.ref, player.money] for player in players]
+def new_trial_balances(trial_balances):
+    trial_balances_values = [[trial_balance.ref, trial_balance.money] for trial_balance in trial_balances]
     return q.map_(
         q.lambda_(
             ["player_ref", "amount"],
@@ -79,7 +77,7 @@ def new_trial_balances(players):
                 q.var("amount")
             )
         ),
-        players_values
+        trial_balances_values
     )
 
 def new_trial_balance(player_ref, amount):
@@ -96,14 +94,14 @@ def new_trial_balance(player_ref, amount):
 
 def update_players(players):
     players_values = [
-        [player.discord_id, player.player_name, player.money] 
+        [player.ref, player.player_name, player.money] 
         for player in players
     ]
     return q.map_(
         q.lambda_(
-            ["discord_id", "player_name", "money"],
-            create_or_update_player(
-                q.var("discord_id"),
+            ["ref", "player_name", "money"],
+            update_player(
+                q.var("ref"),
                 q.var("player_name"),
                 q.var("money")
             )
@@ -111,7 +109,18 @@ def update_players(players):
         players_values
     )
 
-def create_or_update_player(discord_id, player_name, money):
+def update_player(player_ref, player_name, money):
+    return q.update(
+        player_ref,
+        {
+            "data": {
+                "player_name": player_name,
+                "money": money
+            }
+        }
+    )
+
+def get_or_create_player(discord_id, player_name, money=100):
     return q.let(
         {
             "match": q.match(
@@ -121,30 +130,29 @@ def create_or_update_player(discord_id, player_name, money):
         },
         q.if_(
             q.exists(q.var("match")),
-            q.select(
-                ['ref'], 
-                q.update(
-                    q.select(['ref'], q.get(q.var("match"))),
-                    {
-                        "data": {
-                            "player_name": player_name,
-                            "money": money
+            q.get(q.var("match")),
+            q.get(
+                q.select(
+                    ['ref'],
+                    q.create(
+                        q.collection('players'),
+                        {
+                            "data": {
+                                "discord_id": discord_id,
+                                "player_name": player_name,
+                                "money": money
+                            }
                         }
-                    }
+                    )
                 )
-            ),
-            q.select(
-                ['ref'],
-                q.create(
-                    q.collection('players'),
-                    {
-                        "data": {
-                            "discord_id": discord_id,
-                            "player_name": player_name,
-                            "money": money
-                        }
-                    }
-                )
+
             )
         )
+    )
+
+
+def get_players_money(player_ref):
+    return q.select(
+        ['data', 'money'],
+        q.get(player_ref)
     )

@@ -173,16 +173,18 @@ class Player:
     ref: Ref = field(init=False, repr=False)
     discord_id: int
     player_name: str
-    money: float
+    money: float = field(init=False)
     bets: list = field(init=False, repr=False)
     trial_balances: list = field(init=False, repr=False)
 
     def __post_init__(self):
-        self.ref = client.query(f.create_or_update_player(
+        resp = client.query(f.get_or_create_player(
             self.discord_id,
-            self.player_name,
-            self.money
+            self.player_name
         ))
+
+        self.ref = resp['ref']
+        self.money = resp['data']['money']
 
     def __str__(self):
         return f"""Discord ID: {self.discord_id}
@@ -194,9 +196,6 @@ class TrialBalance:
     player_: Player
     amount: float
     date_time: np.datetime64
-
-    def __str__(self):
-        return f"Player {self.player.name} had {self.amount} Jambux at {self.date_time}"
 
 @dataclass
 class Bet:
@@ -212,9 +211,11 @@ class Bet:
         Stake Bet: {self.stake}"""
 
 if __name__ == "__main__":
-    p1 = Player(123, "ben", 100)
-    p2 = Player(456, "dog", 100)
-    x = Round(789, np.datetime64(datetime.now()), np.datetime64(parse("18:35:00")), "general")
-    x.add_bet(p1, np.datetime64(parse("18:58:00")), 100)
-    x.add_bet(p2, np.datetime64(parse("19:33:00")), 100)
+    p1 = Player(999, "chris")
+    print(p1.ref)
+    p2 = Player(000, "brian")
+    print(p2)
+    x = Round(123, np.datetime64(datetime.now()), np.datetime64(parse("21:00:00")), "general")
+    x.add_bet(p1, np.datetime64(parse("22:20:00")), 100)
+    x.add_bet(p2, np.datetime64(parse("21:20:00")), 100)
     x.end_round()

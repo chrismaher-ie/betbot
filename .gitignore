@@ -1,1 +1,3 @@
 .vscode/
+.gitignore
+bot/fauna/__pycache__/

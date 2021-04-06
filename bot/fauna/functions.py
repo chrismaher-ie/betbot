@@ -149,10 +149,3 @@ def get_or_create_player(discord_id, player_name, money=100):
             )
         )
     )
-
-
-def get_players_money(player_ref):
-    return q.select(
-        ['data', 'money'],
-        q.get(player_ref)
-    )

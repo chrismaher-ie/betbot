@@ -97,8 +97,8 @@ class Round:
         Returns:
             str: A string containing each player's description.
         """
-        player_descriptions = [bet.player_.__str__() for bet in bets]
-        return "\n".join(players)
+        player_descriptions = [bet.player_.__str__() for bet in self.bets]
+        return "\n".join(player_descriptions)
  
     def calc_sandwichness(self):
         """Get difference between when member says they will arrive vs when they actually do 

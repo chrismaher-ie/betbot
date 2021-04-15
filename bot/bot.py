@@ -32,6 +32,7 @@ async def on_voice_state_update(member, before, after):
         if after.channel.guild.id in bot.rounds: #check if this guild is running a round
             round = bot.rounds[member.guild.id]
             
+            # Maybe get rid of this check - generic channel is fine
             if after.channel.name == 'General': #change vaule to a variable attibute of round if after.channel.name == round.voice_channel:
             
                 if member.id == round.member.id: #player has arrived and round is over
@@ -88,7 +89,7 @@ async def finish_round(ctx):
         del bot.rounds[ctx.guild.id]
 
 @bot.command(name='bet', help = 'Place a bet in the current round')
-async def bet(ctx, time, stake=10):
+async def bet(ctx, time, stake: float = 10):
     player = Player(ctx.message.author.id, ctx.message.author.name)
 
     stake = float(stake)
@@ -98,13 +99,13 @@ async def bet(ctx, time, stake=10):
 
     # There is no round -> no bet can be made
     if ctx.guild.id not in bot.rounds:
-
         await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! There is no round in progress to bet on.", color=0xff0000))
         return
 
     # Player has already bet -> not bet can be made TODO: edit bet functionality 
     if any(bet.player_.discord_id == ctx.message.author.id for bet in bot.rounds[ctx.guild.id].bets):
-        await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! There is no round in progress to bet on.", color=0xff0000))
+        await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! You have already bet in this round.", color=0xff0000))
+        return
 
     # There is a round & player has not yet bet -> place bet
 
@@ -123,10 +124,17 @@ async def list_bets(ctx):
 
     embedVar = discord.Embed(title="Bets", description=f"The Following users have placed a bet", color=0x0000ff)
     for bet in round.bets:
-        time = bet.time_bet.strftime("%H:%M:%S")
+        time = bet.time_bet.item().strftime("%H:%M:%S")
         embedVar.add_field(name=bet.player_.name, value=f"{bet.stake} coins on {time}", inline=False)
 
     await ctx.send(embed=embedVar)
+
+@bot.command(name='me', help = 'Check Player details')
+async def me(ctx):
+    player = Player(ctx.message.author.id, ctx.message.author.name)
+
+    await ctx.send(embed=discord.Embed(Title="Player Details", description=f"{player.name} has {player.money} coins", color=0x0000ff))
+
 
 
 @bot.event

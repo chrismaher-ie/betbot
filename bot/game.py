@@ -12,7 +12,7 @@ class Round:
 
     def __init__(self, member, command_channel, start_time, proposed_time):
 
-        self.member: dicord.Member = member
+        self.member: discord.Member = member
         self.command_channel: discord.channel.TextChannel = command_channel 
 
         self.start_time: np.datetime64 = start_time
@@ -91,9 +91,13 @@ class Round:
             result_msg = f"{self.member.name} is on time!"
 
         embedVar = discord.Embed(title="Round Ended", description=f"Member {self.member} has arrived", color=0x00ff00)
-        embedVar.add_field(name="Promised time", value=self.proposed_time.item().strftime("%H:%M:%S"), inline=False)
-        embedVar.add_field(name="Current time", value=self.arrival_time.item().strftime("%H:%M:%S"), inline=False)
+        embedVar.add_field(name="Promised time", value=self.proposed_time.item().strftime("%H:%M:%S"), inline=True)
+        embedVar.add_field(name="Current time", value=self.arrival_time.item().strftime("%H:%M:%S"), inline=True)
         embedVar.add_field(name="Result", value=result_msg, inline=False)
+        embedVar.add_field(name="Bets", value="List of Player Bets:", inline=True)
+        for bet in self.bets:
+            time = bet.time_bet.item().strftime("%H:%M:%S")
+            embedVar.add_field(name=bet.player_.name, value=f"Guess: {time}, Winnings: {bet.winnings}, Money: {bet.player_.money}", inline=False)
         #TODO: add bet information to embed
         return embedVar
 
@@ -139,7 +143,7 @@ class Round:
         Returns:
             ndarray[float]: Distance member's arrival time is away from proposed time, in minutes.            
         """
-        return (self.proposed_time - self.arrival_time).astype(int) / self._ns_to_min_factor
+        return ((self.proposed_time - self.arrival_time) / self._ns_to_min_factor).astype(int)
 
     def calc_distances(self, times_bet, comparative_time):
         """Calculate the distances (in minutes) each time bet is from the comparative time 

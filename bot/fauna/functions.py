@@ -18,17 +18,16 @@ def add_arrival_time_to_round(round_ref, arrival_time):
         }
     )
 
-def new_round(member, start_time, proposed_time, command_channel):
+def new_round(member_name, start_time, proposed_time):
     return q.select(
         ['ref'],
         q.create(
             q.collection('rounds'),
             {
                 "data": {
-                    "member": member,
+                    "member_name": member_name,
                     "start_time": str(start_time),
-                    "proposed_time": str(proposed_time),
-                    "command_channel": command_channel
+                    "proposed_time": str(proposed_time)
                 }
             }
         )
@@ -94,33 +93,33 @@ def new_trial_balance(player_ref, amount):
 
 def update_players(players):
     players_values = [
-        [player.ref, player.player_name, player.money] 
+        [player.ref, player.name, player.money] 
         for player in players
     ]
     return q.map_(
         q.lambda_(
-            ["ref", "player_name", "money"],
+            ["ref", "name", "money"],
             update_player(
                 q.var("ref"),
-                q.var("player_name"),
+                q.var("name"),
                 q.var("money")
             )
         ),
         players_values
     )
 
-def update_player(player_ref, player_name, money):
+def update_player(player_ref, name, money):
     return q.update(
         player_ref,
         {
             "data": {
-                "player_name": player_name,
+                "player_name": name,
                 "money": money
             }
         }
     )
 
-def get_or_create_player(discord_id, player_name, money=100):
+def get_or_create_player(discord_id, name, money=100):
     return q.let(
         {
             "match": q.match(
@@ -139,7 +138,7 @@ def get_or_create_player(discord_id, player_name, money=100):
                         {
                             "data": {
                                 "discord_id": discord_id,
-                                "player_name": player_name,
+                                "name": name,
                                 "money": money
                             }
                         }

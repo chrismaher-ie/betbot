@@ -34,7 +34,7 @@ async def on_voice_state_update(member, before, after):
             
             if after.channel.name == 'General': #change vaule to a variable attibute of round if after.channel.name == round.voice_channel:
             
-                if member.id == round.member: #player has arrived and round is over
+                if member.id == round.member.id: #player has arrived and round is over
                     
                     #TODO: change to round member function                    
                     result_embed = round.end_round()
@@ -57,7 +57,7 @@ async def new_round(ctx, member: discord.Member, proposed_time):
         await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! A round is already in progress.", color=0xff0000))
         return
     print("making new round")
-    bot.rounds[ctx.guild.id] = Round(member.id, start_time, proposed_time, ctx.channel)
+    bot.rounds[ctx.guild.id] = Round(member, ctx.channel, start_time, proposed_time)
     print("made new round")
     embedVar = discord.Embed(title="New Round", description=f"Member {member.name} is being timed!", color=0x0000ff)
     embedVar.add_field(name="Promised time", value=proposed_time_str, inline=False)
@@ -89,9 +89,10 @@ async def finish_round(ctx):
 
 @bot.command(name='bet', help = 'Place a bet in the current round')
 async def bet(ctx, time, stake=10):
+    player = Player(ctx.message.author.id, ctx.message.author.name)
+
     stake = float(stake)
 
-    
     time = np.datetime64(parse(time))
     time_str = time.item().strftime("%H:%M:%S")
 
@@ -102,12 +103,12 @@ async def bet(ctx, time, stake=10):
         return
 
     # Player has already bet -> not bet can be made TODO: edit bet functionality 
-    if any(bet.player_.discord_id == ctx.message.author.id for bet in bot.rounds[ctx.guild.id]):
+    if any(bet.player_.discord_id == ctx.message.author.id for bet in bot.rounds[ctx.guild.id].bets):
         await ctx.send(embed=discord.Embed(Title="Error", description="Sorry! There is no round in progress to bet on.", color=0xff0000))
 
     # There is a round & player has not yet bet -> place bet
 
-    bot.rounds[ctx.guild.id].add_bet(ctx.message.author.id,time,stake)
+    bot.rounds[ctx.guild.id].add_bet(player,time,stake)
     await ctx.send(embed=discord.Embed(Title="BET!", description=f"{ctx.message.author.name} has predicted {time_str} betting {stake} coins" ,inline=True, color=0x0000ff))
 
 @bot.command(name='list_bets', help = 'Check the bets in the current round')
@@ -123,7 +124,7 @@ async def list_bets(ctx):
     embedVar = discord.Embed(title="Bets", description=f"The Following users have placed a bet", color=0x0000ff)
     for bet in round.bets:
         time = bet.time_bet.strftime("%H:%M:%S")
-        embedVar.add_field(name=bet.player_.player_name, value=f"{bet.stake} coins on {time}", inline=False)
+        embedVar.add_field(name=bet.player_.name, value=f"{bet.stake} coins on {time}", inline=False)
 
     await ctx.send(embed=embedVar)
 

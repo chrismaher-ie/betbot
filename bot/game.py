@@ -10,26 +10,24 @@ import fauna.functions as f
 class Round:
     _ns_to_min_factor = 60_000_000
 
-    def __init__(self, member, start_time, proposed_time, command_channel):
-        
-        #TODO: rename member to member_id & add member.name
+    def __init__(self, member, command_channel, start_time, proposed_time):
 
-        self.member: int = member
-        self.start_time: np.datetime64 = start_time
-        self.proposed_time: np.datetime64 = proposed_time
+        self.member: dicord.Member = member
         self.command_channel: discord.channel.TextChannel = command_channel 
 
-        # TODO: remove the 'command_channel' from the query
-        self.ref: Ref = self._get_ref(member, start_time, proposed_time, command_channel.name)
+        self.start_time: np.datetime64 = start_time
+        self.proposed_time: np.datetime64 = proposed_time
+
+        self.ref: Ref = self._get_ref(member.name, start_time, proposed_time)
 
         self.bets = []
         self.arrival_time: np.datetime64 = None
 
-    def _get_ref(self, member, start_time, proposed_time, command_channel):
-        return client.query(f.new_round(member, start_time, proposed_time, command_channel))
+    def _get_ref(self, member_name, start_time, proposed_time):
+        return client.query(f.new_round(member_name, start_time, proposed_time))
 
     def __str__(self):
-        return f"""Person of Interest: {self.member}
+        return f"""Person of Interest: {self.member.name}
         Round Start Time: {self.start_time}
         Proposed Arrival Time: {self.proposed_time}
         Arrival Time: {self.arrival_time if self.arrival_time else "Hasn't arrived"}"""
@@ -45,7 +43,12 @@ class Round:
 
         # No players bet -> end round
         if len(self.bets) == 0:
-            return discord.Embed(Title="Ended!", description="The current round has ended but no bets were made, Boo!",inline=False, color=0x0000ff)
+            return discord.Embed(
+                Title="Ended!", 
+                description="The current round has ended but no bets were made, Boo!",
+                inline=False, 
+                color=0x0000ff
+            )
             # TODO: set round state in db to closed
 
         self.arrival_time = np.datetime64(datetime.now())
@@ -201,7 +204,7 @@ class Round:
 class Player:
     ref: Ref = field(init=False, repr=False)
     discord_id: int
-    player_name: str
+    name: str
     money: float = field(init=False)
     bets: list = field(init=False, repr=False)
     trial_balances: list = field(init=False, repr=False)
@@ -209,7 +212,7 @@ class Player:
     def __post_init__(self):
         resp = client.query(f.get_or_create_player(
             self.discord_id,
-            self.player_name
+            self.name
         ))
 
         self.ref = resp['ref']
@@ -217,7 +220,7 @@ class Player:
 
     def __str__(self):
         return f"""Discord ID: {self.discord_id}
-        Name: {self.player_name}
+        Name: {self.name}
         Current Money: {self.money}"""
 
 @dataclass

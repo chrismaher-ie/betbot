@@ -2,6 +2,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from datetime import datetime
 from dateutil.parser import parse # Remove before finishing
+import discord
 
 from fauna.fauna_base import *
 import fauna.functions as f
@@ -10,12 +11,16 @@ class Round:
     _ns_to_min_factor = 60_000_000
 
     def __init__(self, member, start_time, proposed_time, command_channel):
+        
+        #TODO: rename member to member_id & add member.name
+
         self.member: int = member
         self.start_time: np.datetime64 = start_time
         self.proposed_time: np.datetime64 = proposed_time
-        self.command_channel: str = command_channel 
+        self.command_channel: discord.channel.TextChannel = command_channel 
 
-        self.ref: Ref = self._get_ref(member, start_time, proposed_time, command_channel)
+        # TODO: remove the 'command_channel' from the query
+        self.ref: Ref = self._get_ref(member, start_time, proposed_time, command_channel.name)
 
         self.bets = []
         self.arrival_time: np.datetime64 = None
@@ -35,16 +40,19 @@ class Round:
         balance object, and then pushing data to database.
 
         Returns:
-            None: Chris, to decide if something should be returned.
+            Discord embeded message with the results from the round
         """
+
+        # No players bet -> end round
+        if len(self.bets) == 0:
+            return discord.Embed(Title="Ended!", description="The current round has ended but no bets were made, Boo!",inline=False, color=0x0000ff)
+            # TODO: set round state in db to closed
+
         self.arrival_time = np.datetime64(datetime.now())
 
-        if len(self.bets) > 0:
-            bet_data = np.array([(bet.stake, bet.time_bet)
-                for bet in self.bets
-            ])
-        else:
-            return "No bets added to round."
+        bet_data = np.array([(bet.stake, bet.time_bet)
+            for bet in self.bets
+        ])
 
         stakes = bet_data[:,0]
         times_bet = bet_data[:,1].astype(np.datetime64) # Prevent dumb coercion
@@ -67,7 +75,28 @@ class Round:
 
         client.query(f.push(self.ref, self.arrival_time, players, self.bets, trial_balances))
 
-        return "Round ended"
+
+        #temporary for testing
+        #calculate time
+        timedelta = self.calc_sandwichness()
+        if timedelta > 0:
+            result_msg = f"{self.member.name} is early by {timedelta} minutes! Congrats!"
+        elif timedelta < 0:
+            timedelta *= -1
+            result_msg = f"{self.member.name} is late by {timedelta} minutes! Boo!"
+        elif timedelta == 0:
+            result_msg = f"{self.member.name} is on time!"
+
+        embedVar = discord.Embed(title="Round Ended", description=f"Member {self.member} has arrived", color=0x00ff00)
+        embedVar.add_field(name="Promised time", value=self.proposed_time.item().strftime("%H:%M:%S"), inline=False)
+        embedVar.add_field(name="Current time", value=self.arrival_time.item().strftime("%H:%M:%S"), inline=False)
+        embedVar.add_field(name="Result", value=result_msg, inline=False)
+        #TODO: add bet information to embed
+        return embedVar
+
+    def cancel_round(self):
+        # TODO: set round state in db to closed
+        return
 
     def add_bet(self, player, time_bet, stake):
         """Add a bet object to the round's list of bets. 

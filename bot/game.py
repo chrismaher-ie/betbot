@@ -184,8 +184,11 @@ class Round:
         Returns:
             ndarray[float]: The final scores for each player.
         """
+        print(f"Distances: {distances}")
         scores_unnormalized = self.score_func(distances)
+        print(f"Unnorm_scores: {scores_unnormalized}")
         average_score = scores_unnormalized.mean()
+        print(f"Avg unnorm score: {average_score}")
         return np.around(scores_unnormalized - average_score, decimals=3)
 
     def calc_winnings(self, distances, stakes):
@@ -200,6 +203,7 @@ class Round:
             ndarray[float]: The final winnings for each player.
         """
         scores = self.calc_scores(distances)
+        print(f"Scores: {scores}")
         winnings = stakes * scores
 
         return winnings 
